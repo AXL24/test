@@ -1,65 +1,50 @@
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Mapper;
-
-import java.io.IOException;
-
-public class ConsumptionMapper extends Mapper<Object, Text, Text, IntWritable> {
-    private Text year = new Text();
-    private IntWritable averageConsumption = new IntWritable();
-
-    @Override
-    protected void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-        String[] fields = value.toString().split("\t");
-        if (fields.length > 1) {
-            year.set(fields[0]); // Năm
-            int totalConsumption = 0;
-
-            for (int i = 1; i < fields.length; i++) {
-                totalConsumption += Integer.parseInt(fields[i]);
-            }
-
-            int average = totalConsumption / (fields.length - 1);
-            averageConsumption.set(average);
-            context.write(year, averageConsumption);
-        }
-    }
-}
-2. Reducer Class
-Ensure that the reducer correctly processes the data.
-
-java
-Copy code
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Reducer;
-
-import java.io.IOException;
-
-public class ConsumptionReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-    @Override
-    protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-        for (IntWritable val : values) {
-            if (val.get() > 30) {
-                context.write(key, val);
-            }
-        }
-    }
-}
-3. Main Class
-Make sure to set up the job configuration correctly.
-
-java
-Copy code
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
+import java.io.IOException;
+
 public class ConsumptionAnalysis {
+
+    public static class ConsumptionMapper extends Mapper<Object, Text, Text, IntWritable> {
+        private Text year = new Text();
+        private IntWritable averageConsumption = new IntWritable();
+
+        @Override
+        protected void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            String[] fields = value.toString().split("\t");
+            if (fields.length > 1) {
+                year.set(fields[0]);
+                int totalConsumption = 0;
+
+                for (int i = 1; i < fields.length; i++) {
+                    totalConsumption += Integer.parseInt(fields[i]);
+                }
+
+                int average = totalConsumption / (fields.length - 1);
+                averageConsumption.set(average);
+                context.write(year, averageConsumption);
+            }
+        }
+    }
+
+    public static class ConsumptionReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+        @Override
+        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            for (IntWritable val : values) {
+                if (val.get() > 30) {
+                    context.write(key, val);
+                }
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.err.println("Usage: ConsumptionAnalysis <input path> <output path>");
