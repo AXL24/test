@@ -7,29 +7,26 @@ import java.io.IOException;
 
 public class ElectricConsumptionMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
     private Text year = new Text();
-    private IntWritable consumption = new IntWritable();
+    private IntWritable averageConsumption = new IntWritable();
 
     @Override
     protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
         // Tách các trường từ dòng dữ liệu
-        String[] fields = value.toString().split(",");
-        if (fields.length >= 2) {
+        String[] fields = value.toString().split("\t");
+        if (fields.length > 0) {
             try {
                 year.set(fields[0]); // Năm
-                consumption.set(Integer.parseInt(fields[1])); // Giá trị tiêu thụ điện trung bình
-                context.write(year, consumption);
+                averageConsumption.set(Integer.parseInt(fields[fields.length - 1])); // Giá trị trung bình
+                context.write(year, averageConsumption);
             } catch (NumberFormatException e) {
                 // Bỏ qua nếu không thể chuyển đổi
             }
         }
     }
 }
-
-
-
-
-
-
+2.2. ElectricConsumptionReducer.java
+java
+Copy code
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -50,9 +47,9 @@ public class ElectricConsumptionReducer extends Reducer<Text, IntWritable, Text,
         }
     }
 }
-
-
-
+2.3. ElectricConsumptionDriver.java
+java
+Copy code
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -84,4 +81,29 @@ public class ElectricConsumptionDriver {
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }
+3. Hướng dẫn sử dụng
+Cấu trúc thư mục:
 
+css
+Copy code
+your_project/
+├── src/
+│   └── main/
+│       └── java/
+│           └── your_package/
+│               ├── ElectricConsumptionMapper.java
+│               ├── ElectricConsumptionReducer.java
+│               └── ElectricConsumptionDriver.java
+└── pom.xml (nếu sử dụng Maven)
+Biên dịch chương trình: Sử dụng Maven hoặc Gradle để biên dịch chương trình và tạo tệp JAR.
+
+Chạy chương trình: Sử dụng lệnh sau trên Hadoop:
+
+bash
+Copy code
+hadoop jar ElectricConsumptionDriver.jar <input_path> <output_path>
+Trong đó <input_path> là đường dẫn đến tệp dữ liệu đầu vào và <output_path> là đường dẫn đến thư mục đầu ra.
+
+Kiểm tra kết quả: Kết quả sẽ được lưu trong thư mục đầu ra mà bạn đã chỉ định. Các năm có lượng điện tiêu thụ trung bình lớn hơn 30 sẽ được xuất ra cùng với giá trị tương ứng.
+
+Với chương trình này, bạn đã hoàn thành việc phân tích tiêu thụ điện hàng năm cho tổ chức của mình. Nếu bạn cần thêm bất kỳ hỗ trợ nào, hãy cho tôi biết!
