@@ -1,6 +1,6 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -10,66 +10,45 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import java.io.IOException;
 
-public class ConsumptionAnalysis {
+public class ElectricityConsumption {
 
-    // Mapper class
-    public static class ConsumptionMapper extends Mapper<Object, Text, Text, IntWritable> {
+    public static class ConsumptionMapper extends Mapper<Object, Text, Text, DoubleWritable> {
         private Text year = new Text();
-        private IntWritable averageConsumption = new IntWritable();
+        private DoubleWritable avgConsumption = new DoubleWritable();
 
-        @Override
-        protected void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-            String[] fields = value.toString().split("\t");
-
-            // Bỏ qua dòng đầu tiên (tiêu đề)
-            if (fields.length == 14 && !fields[0].equals("avg")) {  
-                year.set(fields[0]); // Năm
-                int totalConsumption = 0;
-
-                // Tính tổng tiêu thụ điện cho 12 tháng
-                for (int i = 1; i < 13; i++) {
-                    totalConsumption += Integer.parseInt(fields[i]);
-                }
-
-                // Tính trung bình
-                int average = totalConsumption / 12;
-                averageConsumption.set(average);
-                context.write(year, averageConsumption);
+        public void map(Object key, Text value) throws IOException, InterruptedException {
+            String[] fields = value.toString().split("\\s+");
+            // Bỏ qua dòng tiêu đề
+            if (fields[0].equals("jan")) {
+                return;
             }
+            year.set(fields[0]); // Năm
+            avgConsumption.set(Double.parseDouble(fields[fields.length - 1])); // Cột trung bình
+            context.write(year, avgConsumption);
         }
     }
 
-    // Reducer class
-    public static class ConsumptionReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        @Override
-        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            for (IntWritable val : values) {
-                if (val.get() > 30) {  // Kiểm tra xem có lớn hơn 30 không
+    public static class ConsumptionReducer extends Reducer<Text, DoubleWritable, Text, DoubleWritable> {
+        public void reduce(Text key, Iterable<DoubleWritable> values, Context context)
+                throws IOException, InterruptedException {
+            for (DoubleWritable val : values) {
+                if (val.get() > 30) {
                     context.write(key, val);
                 }
             }
         }
     }
 
-    // Main method
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.err.println("Usage: ConsumptionAnalysis <input path> <output path>");
-            System.exit(-1);
-        }
-
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "Electric Consumption Analysis");
-        job.setJarByClass(ConsumptionAnalysis.class);
+        Job job = Job.getInstance(conf, "electricity consumption");
+        job.setJarByClass(ElectricityConsumption.class);
         job.setMapperClass(ConsumptionMapper.class);
         job.setReducerClass(ConsumptionReducer.class);
-        
         job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
-        
+        job.setOutputValueClass(DoubleWritable.class);
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
-        
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }
